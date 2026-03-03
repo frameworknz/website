@@ -1,0 +1,40 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  lint-typecheck:
+    name: Lint & TypeCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: TypeCheck all packages
+        run: |
+          npx tsc --noEmit -p workers/api/tsconfig.json
+          npx tsc --noEmit -p apps/web/tsconfig.json
+          npx tsc --noEmit -p apps/portal/tsconfig.json
+
+      - name: Verify SQL migrations
+        run: |
+          for f in database/migrations/*.sql; do
+            echo "Validating $f"
+            sqlite3 :memory: < "$f" && echo "OK: $f" || exit 1
+          done
+
+      - name: Check for secrets in code
+        run: |
+          if grep -r "ZOHO_CLIENT_SECRET\|JWT_SECRET\|SENDGRID_API_KEY" --include="*.ts" --include="*.tsx" --include="*.js" workers/ apps/ | grep -v "process.env\|env\.\|import.meta.env\|Env\b"; then
+            echo "ERROR: Hardcoded secrets detected"
+            exit 1
+          fi
+          echo "No hardcoded secrets found"

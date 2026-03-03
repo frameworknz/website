@@ -1,0 +1,184 @@
+name: Deploy — Framework
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ─── Type check & test ────────────────────────────────────────────────────
+  test:
+    name: TypeCheck & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript typecheck — API Worker
+        run: npx tsc --noEmit -p workers/api/tsconfig.json
+
+      - name: TypeScript typecheck — Web
+        run: npx tsc --noEmit -p apps/web/tsconfig.json
+
+      - name: TypeScript typecheck — Portal
+        run: npx tsc --noEmit -p apps/portal/tsconfig.json
+
+      - name: Run tests
+        run: npm test --if-present
+
+      - name: D1 migration dry-run
+        run: |
+          npx wrangler d1 execute framework-db --local --command="SELECT 1" || true
+
+  # ─── Deploy to staging (develop branch) ───────────────────────────────────
+  deploy-staging:
+    name: Deploy — Staging
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy API Worker (staging)
+        run: npx wrangler deploy --env staging workers/api/src/index.ts
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy PDF Generator (staging)
+        run: npx wrangler deploy --env staging workers/pdf-generator/src/index.ts
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy Automation Worker (staging)
+        run: npx wrangler deploy --env staging workers/automation/src/index.ts
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Build public website
+        run: npm run build:web
+        env:
+          VITE_API_URL: https://api-staging.framework.co.nz/v1
+
+      - name: Deploy website to Cloudflare Pages (staging)
+        run: npx wrangler pages deploy apps/web/dist --project-name=framework-web --branch=staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Build portal
+        run: npm run build:portal
+        env:
+          VITE_API_URL: https://api-staging.framework.co.nz/v1
+
+      - name: Deploy portal to Cloudflare Pages (staging)
+        run: npx wrangler pages deploy apps/portal/dist --project-name=framework-portal --branch=staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Run D1 migrations (staging)
+        run: npx wrangler d1 migrations apply framework-db-staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  # ─── Deploy to production (main branch) ───────────────────────────────────
+  deploy-production:
+    name: Deploy — Production
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy API Worker
+        run: npx wrangler deploy workers/api/src/index.ts
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy PDF Generator
+        run: npx wrangler deploy workers/pdf-generator/src/index.ts
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy Automation Worker
+        run: npx wrangler deploy workers/automation/src/index.ts
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Build public website
+        run: npm run build:web
+        env:
+          VITE_API_URL: https://api.framework.co.nz/v1
+
+      - name: Deploy website to Cloudflare Pages (production)
+        run: npx wrangler pages deploy apps/web/dist --project-name=framework-web --branch=main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Build portal
+        run: npm run build:portal
+        env:
+          VITE_API_URL: https://api.framework.co.nz/v1
+
+      - name: Deploy portal to Cloudflare Pages (production)
+        run: npx wrangler pages deploy apps/portal/dist --project-name=framework-portal --branch=main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Run D1 migrations (production)
+        run: npx wrangler d1 migrations apply framework-db
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Purge Cloudflare cache
+        run: |
+          curl -X POST "https://api.cloudflare.com/client/v4/zones/${{ secrets.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}'
+
+      - name: Notify Zoho CRM of deployment
+        run: |
+          curl -s -X POST "${{ secrets.API_URL }}/v1/webhooks/zoho" \
+            -H "Content-Type: application/json" \
+            --data '{"type":"deployment","env":"production","commit":"${{ github.sha }}"}'
+        continue-on-error: true

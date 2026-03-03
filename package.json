@@ -1,0 +1,31 @@
+{
+  "name": "framework",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "workers/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:portal": "npm run dev --workspace=apps/portal",
+    "dev:worker": "npm run dev --workspace=workers/api",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:portal": "npm run build --workspace=apps/portal",
+    "build:all": "npm run build:web && npm run build:portal",
+    "typecheck": "tsc --noEmit -p tsconfig.json && npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "db:migrate": "bash scripts/db-migrate.sh",
+    "db:seed": "bash scripts/db-seed.sh",
+    "deploy:staging": "bash scripts/deploy.sh staging",
+    "deploy:production": "bash scripts/deploy.sh production",
+    "zoho:sync-rules": "bash scripts/zoho-sync.sh"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250101.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.2.0",
+    "wrangler": "^3.40.0"
+  }
+}

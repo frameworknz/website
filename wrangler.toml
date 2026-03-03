@@ -1,0 +1,57 @@
+name = "framework-api"
+main = "workers/api/src/index.ts"
+compatibility_date = "2025-01-01"
+node_compat = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "framework-db"
+database_id = "YOUR_D1_ID"
+
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "framework-storage"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "YOUR_KV_ID"
+
+[[queues.producers]]
+binding = "TASK_QUEUE"
+queue = "framework-tasks"
+
+[[queues.consumers]]
+queue = "framework-tasks"
+max_batch_size = 10
+max_batch_timeout = 30
+
+[vars]
+ENVIRONMENT = "production"
+APP_URL = "https://framework.co.nz"
+ZOHO_REGION = "com.au"
+
+[triggers]
+crons = [
+  "0 6 * * 1",
+  "0 8 * * *",
+  "*/55 * * * *",
+  "0 0 1 * *",
+  "30 17 * * 5"
+]
+
+[env.staging]
+name = "framework-api-staging"
+vars = { ENVIRONMENT = "staging", APP_URL = "https://staging.framework.co.nz" }
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "framework-db-staging"
+database_id = "YOUR_D1_STAGING_ID"
+
+[[env.staging.r2_buckets]]
+binding = "STORAGE"
+bucket_name = "framework-storage-staging"
+
+[[env.staging.kv_namespaces]]
+binding = "SESSIONS"
+id = "YOUR_KV_STAGING_ID"

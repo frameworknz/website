@@ -1,0 +1,10 @@
+# Copy to .dev.vars and fill in values — never commit .dev.vars
+ZOHO_CLIENT_ID=your_zoho_client_id
+ZOHO_CLIENT_SECRET=your_zoho_client_secret
+ZOHO_REFRESH_TOKEN=your_zoho_refresh_token
+JWT_SECRET=your_jwt_secret_min_32_chars
+SENDGRID_API_KEY=your_sendgrid_key
+R2_PUBLIC_URL=https://pub.framework.co.nz
+TWILIO_ACCOUNT_SID=your_twilio_sid
+TWILIO_AUTH_TOKEN=your_twilio_token
+TWILIO_PHONE_NUMBER=+64xxxxxxxxx
