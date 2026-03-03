@@ -21,7 +21,7 @@ npx wrangler r2 bucket create "framework-storage${SUFFIX}" || echo "  (may alrea
 
 echo ""
 echo "━━━ KV Namespace ━━━"
-npx wrangler kv:namespace create "SESSIONS${SUFFIX}" || echo "  (may already exist)"
+npx wrangler kv namespace create "SESSIONS${SUFFIX}" || echo "  (may already exist)"
 
 echo ""
 echo "━━━ Queues ━━━"
